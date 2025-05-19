@@ -14,8 +14,9 @@ pub struct AppointPool<'info> {
     
     #[account(mut)]
     pub authority: Signer<'info>,
-    
-    pub treasury: UncheckedAccount<'info>,
+
+    /// CHECK: Explain why no checks are necessary for this field (e.g. "This account is only used for ... and does not require validation here")    
+    pub treasury: AccountInfo<'info>,
     
     pub system_program: Program<'info, System>,
 }
