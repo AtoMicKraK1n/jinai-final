@@ -10,7 +10,7 @@ describe("jinai-here", () => {
 
   it("Is initialized!", async () => {
     // Add your test here.
-    const tx = await program.methods.initialize().rpc();
+    const tx = await program.methods.appointPool.rpc();
     console.log("Your transaction signature", tx);
   });
 });

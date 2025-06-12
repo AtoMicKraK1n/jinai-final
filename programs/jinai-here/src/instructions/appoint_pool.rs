@@ -6,7 +6,7 @@ pub struct AppointPool<'info> {
     #[account(
         init,
         payer = authority,
-        space = GlobalState::INIT_SPACE,
+        space = 8 + GlobalState::INIT_SPACE,
         seeds = [b"global-state"],
         bump
     )]
