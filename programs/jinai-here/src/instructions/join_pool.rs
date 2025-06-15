@@ -16,7 +16,7 @@ pub struct JoinPool<'info> {
     #[account(
         init,
         payer = player_authority,
-        space = Player::INIT_SPACE,
+        space = 8 + Player::INIT_SPACE,
         seeds = [b"player", pool.pool_id.to_le_bytes().as_ref(), player_authority.key().as_ref()],
         bump
     )]
@@ -65,7 +65,7 @@ pub struct JoinPool<'info> {
     player.pool_id = pool.pool_id;
     player.deposit_amount = deposit_amount;
     player.has_claimed = false;
-    player.rank = 0; 
+    player.rank = 0;
     player.prize_amount = 0;
     player.bump = ctx.bumps.player;
 
