@@ -333,6 +333,41 @@ describe("JinAI pool creation", () => {
           Number(finalPoolAccount.totalAmount) / 1_000_000_000
         } SOL)`
       );
+      console.log(finalPoolAccount);
+    } catch (error) {
+      console.error("Test failed with error:", error);
+      throw error;
+    }
+  });
+
+  it("should set pool status to InProgress if called by creator or authority", async () => {
+    try {
+      const poolId = "0";
+      const [poolPda] = PublicKey.findProgramAddressSync(
+        [Buffer.from("pool"), new BN(poolId).toArrayLike(Buffer, "le", 8)],
+        program.programId
+      );
+      const finalPoolAccount = await program.account.pool.fetch(poolPda);
+      const [globalStatePda] = PublicKey.findProgramAddressSync(
+        [Buffer.from("global-state")],
+        program.programId
+      );
+
+      const tx = await program.methods
+        .securePool()
+        .accountsPartial({
+          pool: poolPda,
+          globalState: globalStatePda,
+          signer: payer.publicKey,
+        })
+        .signers([payer])
+        .rpc();
+
+      console.log(
+        "should set pool status to InProgress if reached max players",
+        tx
+      );
+      console.log(finalPoolAccount);
     } catch (error) {
       console.error("Test failed with error:", error);
       throw error;

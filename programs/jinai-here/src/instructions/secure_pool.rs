@@ -25,7 +25,7 @@ pub struct SecurePool<'info> {
 pub fn secure_pool_handler(ctx: Context<SecurePool>) -> Result<()> {
     let pool = &mut ctx.accounts.pool;
 
-    require!(pool.status == PoolStatus::Open, ErrorCode::InvalidPoolStatus);
+    require!(pool.status == PoolStatus::InProgress, ErrorCode::InvalidPoolStatus);
 
     require!(
         ctx.accounts.signer.key() == pool.creator ||
