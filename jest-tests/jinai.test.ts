@@ -5,6 +5,7 @@ import {
   Keypair,
   SystemProgram,
   LAMPORTS_PER_SOL,
+  Transaction,
 } from "@solana/web3.js";
 import { startAnchor } from "solana-bankrun";
 import { BankrunProvider } from "anchor-bankrun";
@@ -14,10 +15,12 @@ import { BN } from "bn.js";
 
 describe("JinAI pool creation", () => {
   let context: any;
+  let client: any;
   let provider: BankrunProvider;
   let program: Program<JinaiHere>;
   let payer: Keypair;
   let playerKeypair: Keypair;
+  let playerKeypairs: Keypair[];
 
   beforeAll(async () => {
     const IDL = require("../target/idl/jinai_here.json");
@@ -25,10 +28,12 @@ describe("JinAI pool creation", () => {
 
     context = await startAnchor("./", [], []);
     provider = new BankrunProvider(context);
+    client = context.banksClient;
     anchor.setProvider(provider);
 
     payer = context.payer;
     playerKeypair = Keypair.generate();
+    playerKeypairs = Array.from({ length: 4 }, () => Keypair.generate());
 
     // Fund playerKeypair from payer
     const tx = new anchor.web3.Transaction().add(
@@ -165,12 +170,6 @@ describe("JinAI pool creation", () => {
     try {
       const poolId = "0";
       const depositAmount = new BN(1 * LAMPORTS_PER_SOL); // 1 SOL in lamports
-      const numberOfPlayers = 4;
-
-      // Create keypairs for all players
-      const playerKeypairs = Array.from({ length: numberOfPlayers }, () =>
-        Keypair.generate()
-      );
 
       // Derive pool PDA
       const [poolPda] = PublicKey.findProgramAddressSync(
@@ -200,7 +199,7 @@ describe("JinAI pool creation", () => {
 
       // Fund all player accounts
       console.log("Funding player accounts...");
-      for (let i = 0; i < numberOfPlayers; i++) {
+      for (let i = 0; i < 4; i++) {
         const fundTx = new anchor.web3.Transaction().add(
           SystemProgram.transfer({
             fromPubkey: payer.publicKey,
@@ -217,7 +216,7 @@ describe("JinAI pool creation", () => {
       // Have each player join the pool
       const playerPdas = [];
 
-      for (let i = 0; i < numberOfPlayers; i++) {
+      for (let i = 0; i < 4; i++) {
         console.log(`\n--- Player ${i + 1} joining pool ---`);
 
         // Derive player PDA
@@ -291,13 +290,11 @@ describe("JinAI pool creation", () => {
 
       // Final verification - check that all 4 players joined successfully
       const finalPoolAccount = await program.account.pool.fetch(poolPda);
-      const expectedPlayerCount = Number(initialPlayerCount) + numberOfPlayers;
+      const expectedPlayerCount = Number(initialPlayerCount) + 4;
 
       expect(Number(finalPoolAccount.currentPlayers)).toBe(expectedPlayerCount);
       expect(finalPoolAccount.totalAmount.toString()).toBe(
-        initialTotalAmount
-          .add(depositAmount.mul(new BN(numberOfPlayers)))
-          .toString()
+        initialTotalAmount.add(depositAmount.mul(new BN(4))).toString()
       );
 
       // If pool is now full, check status change
@@ -311,7 +308,7 @@ describe("JinAI pool creation", () => {
 
       // Verify all player accounts exist and are correctly initialized
       console.log("\n--- Verifying all player accounts ---");
-      for (let i = 0; i < numberOfPlayers; i++) {
+      for (let i = 0; i < 4; i++) {
         const playerAccount = await program.account.player.fetch(playerPdas[i]);
         expect(playerAccount.player.toString()).toBe(
           playerKeypairs[i].publicKey.toString()
@@ -368,6 +365,69 @@ describe("JinAI pool creation", () => {
         tx
       );
       console.log(finalPoolAccount);
+    } catch (error) {
+      console.error("Test failed with error:", error);
+      throw error;
+    }
+  });
+
+  it("should set results for a pool", async () => {
+    try {
+      // Setup test data
+      const poolId = 0;
+      const playerRanks = [1, 2, 3, 4]; // Player ranks (1st, 2nd, 3rd, 4th)
+
+      // Derive PDAs
+      const [poolPda] = PublicKey.findProgramAddressSync(
+        [Buffer.from("pool"), new BN(poolId).toArrayLike(Buffer, "le", 8)],
+        program.programId
+      );
+
+      const [globalStatePda] = PublicKey.findProgramAddressSync(
+        [Buffer.from("global-state")],
+        program.programId
+      );
+
+      const playerPdas = [];
+      for (let i = 0; i < 4; i++) {
+        const [playerPda] = PublicKey.findProgramAddressSync(
+          [
+            Buffer.from("player"),
+            new BN(poolId).toArrayLike(Buffer, "le", 8),
+            playerKeypairs[i].publicKey.toBuffer(),
+          ],
+          program.programId
+        );
+        playerPdas.push(playerPda);
+      }
+
+      // Execute the set_results instruction
+      const tx = await program.methods
+        .setResults(playerRanks)
+        .accountsPartial({
+          pool: poolPda,
+          globalState: globalStatePda,
+          authority: payer.publicKey,
+          player1: playerPdas[0],
+          player2: playerPdas[1],
+          player3: playerPdas[2],
+          player4: playerPdas[3],
+        })
+        .signers([payer])
+        .rpc();
+
+      console.log("Set results transaction signature:", tx);
+
+      // // Verify the results
+      // const updatedPlayer1 = await program.account.player.fetch(player1Pda);
+      // const updatedPlayer2 = await program.account.player.fetch(player2Pda);
+      // const updatedPlayer3 = await program.account.player.fetch(player3Pda);
+      // const updatedPlayer4 = await program.account.player.fetch(player4Pda);
+
+      // expect(updatedPlayer1.rank).toBe(1);
+      // expect(updatedPlayer2.rank).toBe(2);
+      // expect(updatedPlayer3.rank).toBe(3);
+      // expect(updatedPlayer4.rank).toBe(4);
     } catch (error) {
       console.error("Test failed with error:", error);
       throw error;

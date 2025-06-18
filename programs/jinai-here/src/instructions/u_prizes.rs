@@ -32,7 +32,6 @@ pub struct UPrizes<'info> {
     pub system_program: Program<'info, System>,
 }
 
-// Place this inside your #[program] module:
 pub fn u_prizes_handler(ctx: Context<UPrizes>) -> Result<()> {
     let player = &mut ctx.accounts.player;
     let pool = &ctx.accounts.pool;

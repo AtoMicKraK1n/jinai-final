@@ -21,7 +21,7 @@ pub struct SecurePool<'info> {
     pub signer: Signer<'info>,
 }
 
-// Place this inside your #[program] module:
+
 pub fn secure_pool_handler(ctx: Context<SecurePool>) -> Result<()> {
     let pool = &mut ctx.accounts.pool;
 

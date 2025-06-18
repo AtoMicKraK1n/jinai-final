@@ -54,7 +54,7 @@ pub struct SetResults<'info> {
     pub player4: Account<'info, Player>,
 }
 
-// Place this inside your #[program] module:
+
 pub fn set_results_handler(ctx: Context<SetResults>, player_ranks: [u8; 4]) -> Result<()> {
     require!(ctx.accounts.pool.status == PoolStatus::InProgress, ErrorCode::InvalidPoolStatus);
 

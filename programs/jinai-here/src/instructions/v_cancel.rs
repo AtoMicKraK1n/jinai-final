@@ -63,7 +63,6 @@ pub struct VCancel<'info> {
     pub system_program: Program<'info, System>,
 }
 
-// Place this inside your #[program] module:
 pub fn v_cancel_handler(ctx: Context<VCancel>) -> Result<()> {
     let pool = &mut ctx.accounts.pool;
 

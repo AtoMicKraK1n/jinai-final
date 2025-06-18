@@ -70,7 +70,6 @@ pub struct TRewards<'info> {
     pub system_program: Program<'info, System>,
 }
 
-// Place this inside your #[program] module:
 pub fn t_rewards_handler(ctx: Context<TRewards>) -> Result<()> {
     let pool = &mut ctx.accounts.pool;
     require!(pool.status == PoolStatus::InProgress, ErrorCode::InvalidPoolStatus);
