@@ -21,6 +21,7 @@ describe("JinAI pool creation", () => {
   let payer: Keypair;
   let playerKeypair: Keypair;
   let playerKeypairs: Keypair[];
+  let treasury: Keypair;
 
   beforeAll(async () => {
     const IDL = require("../target/idl/jinai_here.json");
@@ -34,6 +35,7 @@ describe("JinAI pool creation", () => {
     payer = context.payer;
     playerKeypair = Keypair.generate();
     playerKeypairs = Array.from({ length: 4 }, () => Keypair.generate());
+    treasury = Keypair.generate();
 
     // Fund playerKeypair from payer
     const tx = new anchor.web3.Transaction().add(
@@ -51,7 +53,6 @@ describe("JinAI pool creation", () => {
   it("should initialize global state correctly", async () => {
     try {
       const feeBasisPoints = 250;
-      const treasury = Keypair.generate();
 
       const [globalStatePda] = PublicKey.findProgramAddressSync(
         [Buffer.from("global-state")],
@@ -509,6 +510,101 @@ describe("JinAI pool creation", () => {
       if (error.logs) {
         console.error("Program logs:", error.logs);
       }
+      throw error;
+    }
+  });
+
+  it("should distribute rewards to players", async () => {
+    try {
+      const poolId = 0;
+
+      const [poolPda] = PublicKey.findProgramAddressSync(
+        [Buffer.from("pool"), new BN(poolId).toArrayLike(Buffer, "le", 8)],
+        program.programId
+      );
+
+      const [globalStatePda] = PublicKey.findProgramAddressSync(
+        [Buffer.from("global-state")],
+        program.programId
+      );
+
+      const [poolVaultPda] = PublicKey.findProgramAddressSync(
+        [
+          Buffer.from("pool-vault"),
+          new BN(poolId).toArrayLike(Buffer, "le", 8),
+        ],
+        program.programId
+      );
+
+      const [treasuryPDA] = anchor.web3.PublicKey.findProgramAddressSync(
+        [Buffer.from("treasury")],
+        program.programId
+      );
+
+      const poolAccount = await program.account.pool.fetch(poolPda);
+      const playerAccounts = poolAccount.playerAccounts;
+      const globalStateAccount = await program.account.globalState.fetch(
+        globalStatePda
+      );
+
+      if (playerAccounts.length < 4) {
+        throw new Error(
+          `Expected 4 players, but only found ${playerAccounts.length}`
+        );
+      }
+
+      const validPlayerAccounts = playerAccounts
+        .filter(
+          (account) => account.toString() !== PublicKey.default.toString()
+        )
+        .slice(0, 4);
+
+      if (validPlayerAccounts.length < 4) {
+        throw new Error(
+          `Expected 4 valid player accounts, but only found ${validPlayerAccounts.length}`
+        );
+      }
+
+      console.log(
+        `\nTotal pool amount: ${
+          Number(poolAccount.totalAmount) / LAMPORTS_PER_SOL
+        } SOL`
+      );
+      console.log(
+        `Prize distribution: [${poolAccount.prizeDistribution.join(", ")}]%`
+      );
+
+      const tx = await program.methods
+        .tRewards()
+        .accountsPartial({
+          pool: poolPda,
+          globalState: globalStatePda,
+          authority: payer.publicKey,
+          poolVault: poolVaultPda,
+          treasury: treasury.publicKey,
+          player1: validPlayerAccounts[0],
+          player2: validPlayerAccounts[1],
+          player3: validPlayerAccounts[2],
+          player4: validPlayerAccounts[3],
+          systemProgram: SystemProgram.programId,
+        })
+        .signers([payer])
+        .rpc();
+
+      console.log("Distribute rewards transaction signature:", tx);
+
+      console.log("\n=== REWARD RESULTS ===");
+      for (let i = 0; i < validPlayerAccounts.length; i++) {
+        const playerAccount = await program.account.player.fetch(
+          validPlayerAccounts[i]
+        );
+        const position = playerAccount.rank;
+        const prizeSOL = Number(playerAccount.prizeAmount) / LAMPORTS_PER_SOL;
+
+        console.log(`Player ${i + 1}: Position ${position} → ${prizeSOL} SOL`);
+      }
+    } catch (error) {
+      console.error("Test failed with error:", error);
       throw error;
     }
   });
