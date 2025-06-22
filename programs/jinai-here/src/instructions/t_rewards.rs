@@ -37,7 +37,7 @@ pub struct TRewards<'info> {
 
     #[account(
         mut,
-        seeds = [b"player", pool.pool_id.to_le_bytes().as_ref(), pool.player_accounts[0].as_ref()],
+        seeds = [b"player", pool.pool_id.to_le_bytes().as_ref(), player1.player.as_ref()],
         bump,
         constraint = player1.key() == pool.player_accounts[0] @ ErrorCode::InvalidPlayerAccount
     )]
@@ -45,7 +45,7 @@ pub struct TRewards<'info> {
 
     #[account(
         mut,
-        seeds = [b"player", pool.pool_id.to_le_bytes().as_ref(), pool.player_accounts[1].as_ref()],
+        seeds = [b"player", pool.pool_id.to_le_bytes().as_ref(), player2.player.as_ref()],
         bump,
         constraint = player2.key() == pool.player_accounts[1] @ ErrorCode::InvalidPlayerAccount
     )]
@@ -53,7 +53,7 @@ pub struct TRewards<'info> {
 
     #[account(
         mut,
-        seeds = [b"player", pool.pool_id.to_le_bytes().as_ref(), pool.player_accounts[2].as_ref()],
+        seeds = [b"player", pool.pool_id.to_le_bytes().as_ref(), player3.player.as_ref()],
         bump,
         constraint = player3.key() == pool.player_accounts[2] @ ErrorCode::InvalidPlayerAccount
     )]
@@ -61,7 +61,7 @@ pub struct TRewards<'info> {
 
     #[account(
         mut,
-        seeds = [b"player", pool.pool_id.to_le_bytes().as_ref(), pool.player_accounts[3].as_ref()],
+        seeds = [b"player", pool.pool_id.to_le_bytes().as_ref(), player4.player.as_ref()],
         bump,
         constraint = player4.key() == pool.player_accounts[3] @ ErrorCode::InvalidPlayerAccount
     )]
