@@ -603,6 +603,14 @@ describe("JinAI pool creation", () => {
 
         console.log(`Player ${i + 1}: Position ${position} → ${prizeSOL} SOL`);
       }
+
+      const balance = await client.getBalance(treasury.publicKey);
+      const afterPrizeDistTreasury = Number(balance) / LAMPORTS_PER_SOL;
+
+      console.log(
+        "The treasury balance after prize distribution:",
+        afterPrizeDistTreasury + " SOL"
+      );
     } catch (error) {
       console.error("Test failed with error:", error);
       throw error;
