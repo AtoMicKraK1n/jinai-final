@@ -616,4 +616,185 @@ describe("JinAI pool creation", () => {
       throw error;
     }
   });
+
+  it("should successfully claim prize when pool is completed", async () => {
+    try {
+      const poolId = 0;
+
+      const [poolPda] = PublicKey.findProgramAddressSync(
+        [Buffer.from("pool"), new BN(poolId).toArrayLike(Buffer, "le", 8)],
+        program.programId
+      );
+
+      const [poolVaultPda] = PublicKey.findProgramAddressSync(
+        [
+          Buffer.from("pool-vault"),
+          new BN(poolId).toArrayLike(Buffer, "le", 8),
+        ],
+        program.programId
+      );
+
+      const poolAccount = await program.account.pool.fetch(poolPda);
+      const playerAccounts = poolAccount.playerAccounts;
+
+      const validPlayerAccounts = playerAccounts
+        .filter(
+          (account) => account.toString() !== PublicKey.default.toString()
+        )
+        .slice(0, 4);
+
+      if (validPlayerAccounts.length < 4) {
+        throw new Error(
+          `Expected 4 valid player accounts, but only found ${validPlayerAccounts.length}`
+        );
+      }
+
+      console.log("Pool status before claiming:", poolAccount.status);
+      console.log("Testing prize claiming for players...");
+
+      // Test claiming prizes for each player
+      for (let i = 0; i < validPlayerAccounts.length; i++) {
+        const playerPda = validPlayerAccounts[i];
+
+        const playerAccountBefore = await program.account.player.fetch(
+          playerPda
+        );
+
+        if (playerAccountBefore.prizeAmount.toNumber() === 0) {
+          console.log(`Player ${i + 1} has no prize to claim, skipping...`);
+          continue;
+        }
+
+        if (playerAccountBefore.hasClaimed) {
+          console.log(`Player ${i + 1} has already claimed prize, skipping...`);
+          continue;
+        }
+
+        console.log(`\n--- Player ${i + 1} claiming prize ---`);
+        console.log(
+          `Player authority: ${playerKeypairs[i].publicKey.toString()}`
+        );
+        console.log(
+          `Prize amount: ${
+            playerAccountBefore.prizeAmount.toNumber() / LAMPORTS_PER_SOL
+          } SOL`
+        );
+        console.log(`Rank: ${playerAccountBefore.rank}`);
+
+        // Get initial balances
+        const initialPlayerBalance = Number(
+          await client.getBalance(playerKeypairs[i].publicKey)
+        );
+        const initialVaultBalance = Number(
+          await client.getBalance(poolVaultPda)
+        );
+
+        console.log(
+          `Initial player balance: ${
+            Number(initialPlayerBalance) / LAMPORTS_PER_SOL
+          } SOL`
+        );
+        console.log(
+          `Initial vault balance: ${
+            Number(initialVaultBalance) / LAMPORTS_PER_SOL
+          } SOL`
+        );
+
+        const tx = await program.methods
+          .uPrizes()
+          .accountsPartial({
+            pool: poolPda,
+            player: playerPda,
+            playerAuthority: playerKeypairs[i].publicKey,
+            poolVault: poolVaultPda,
+            systemProgram: SystemProgram.programId,
+          })
+          .signers([playerKeypairs[i]])
+          .rpc();
+
+        console.log(`Player ${i + 1} claim transaction signature:`, tx);
+
+        // Get final balances
+        const finalPlayerBalance = Number(
+          await client.getBalance(playerKeypairs[i].publicKey)
+        );
+        const finalVaultBalance = Number(await client.getBalance(poolVaultPda));
+
+        console.log(
+          `Final player balance: ${
+            Number(finalPlayerBalance) / LAMPORTS_PER_SOL
+          } SOL`
+        );
+        console.log(
+          `Final vault balance: ${
+            Number(finalVaultBalance) / LAMPORTS_PER_SOL
+          } SOL`
+        );
+
+        // Verify the balance changes
+        const expectedPlayerIncrease =
+          playerAccountBefore.prizeAmount.toNumber();
+        const actualPlayerIncrease = finalPlayerBalance - initialPlayerBalance;
+        const actualVaultDecrease = initialVaultBalance - finalVaultBalance;
+
+        expect(actualPlayerIncrease).toBeGreaterThan(
+          expectedPlayerIncrease - 10000
+        );
+        expect(actualVaultDecrease).toBe(expectedPlayerIncrease);
+
+        console.log(
+          `✅ Balance change verified: +${
+            actualPlayerIncrease / LAMPORTS_PER_SOL
+          } SOL to player`
+        );
+
+        // Verify player account was updated
+        const playerAccountAfter = await program.account.player.fetch(
+          playerPda
+        );
+        expect(playerAccountAfter.hasClaimed).toBe(true);
+        expect(playerAccountAfter.prizeAmount.toString()).toBe(
+          playerAccountBefore.prizeAmount.toString()
+        );
+        expect(playerAccountAfter.rank).toBe(playerAccountBefore.rank);
+
+        console.log(`✅ Player ${i + 1} successfully claimed prize`);
+        console.log(
+          `Prize claimed: ${
+            playerAccountBefore.prizeAmount.toNumber() / LAMPORTS_PER_SOL
+          } SOL`
+        );
+      }
+
+      console.log("\n🎉 Prize claiming test completed successfully!");
+
+      // Final verification - check all players have claimed status set correctly
+      console.log("\n--- Final verification of all player accounts ---");
+      for (let i = 0; i < validPlayerAccounts.length; i++) {
+        const playerAccount = await program.account.player.fetch(
+          validPlayerAccounts[i]
+        );
+
+        if (playerAccount.prizeAmount.toNumber() > 0) {
+          expect(playerAccount.hasClaimed).toBe(true);
+          console.log(
+            `✅ Player ${i + 1} (Rank ${playerAccount.rank}): Claimed ${
+              playerAccount.prizeAmount.toNumber() / LAMPORTS_PER_SOL
+            } SOL`
+          );
+        } else {
+          console.log(
+            `✅ Player ${i + 1} (Rank ${playerAccount.rank}): No prize to claim`
+          );
+        }
+      }
+    } catch (error) {
+      console.error("Prize claiming test failed with error:", error);
+      console.error("Error details:", error.message);
+      if (error.logs) {
+        console.error("Program logs:", error.logs);
+      }
+      throw error;
+    }
+  });
 });
